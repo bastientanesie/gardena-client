@@ -47,12 +47,13 @@ async function subscribe(subscription) {
 }
 
 if (process.env.NODE_ENV === 'production') {
-  // register(`${process.env.BASE_URL}service-worker.js`, {
-  register('./service-worker.js', {
+  register(`${process.env.BASE_URL}service-worker.js`, {
+  // register('./service-worker.js', {
     registrationOptions: {
       scope: './',
     },
     async ready(registration) {
+      console.log('Service worker ready');
       try {
         const subscription = await registration.pushManager.subscribe({
           applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
