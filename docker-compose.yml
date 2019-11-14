@@ -1,0 +1,19 @@
+version: '3'
+
+services:
+  gardena-client:
+    container_name: gardena-client
+    restart: always
+    build:
+      context: .
+    image: gardena-client
+    environment:
+      VIRTUAL_HOST: gardena.cloud.maevis.fr
+      VIRTUAL_PORT: 80
+      LETSENCRYPT_HOST: gardena.cloud.maevis.fr
+      LETSENCRYPT_EMAIL: bastien.tanesie@gmail.com
+
+networks:
+  default:
+    external:
+      name: nginx-proxy
