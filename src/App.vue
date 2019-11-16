@@ -1,17 +1,96 @@
 <template>
   <div id="app">
     <img alt="Vue logo" src="./assets/logo.png">
-    <HelloWorld msg="Welcome to Your Vue.js App"/>
+    <IndexPage
+      v-bind:is-service-worker-ready="isServiceWorkerReady"
+      v-bind:is-notifications-ready="isNotificationsReady"
+      v-bind:is-notifications-subscribed="isNotificationsSubscribed"
+    ></IndexPage>
   </div>
 </template>
 
 <script>
-import HelloWorld from './components/HelloWorld.vue';
+import IndexPage from './components/IndexPage.vue';
+import { register } from './registerServiceWorker';
+import { urlBase64ToUint8Array, VAPID_PUBLIC_KEY } from './utils/sw-helpers';
+
+/* eslint-disable no-console */
+
+const API_URL = (process.env.NODE_ENV === 'production')
+  ? '//api.gardena.cloud.maevis.fr/subscribe'
+  : 'http://localhost:5555/subscribe';
 
 export default {
   name: 'app',
+  data() {
+    return {
+      isServiceWorkerReady: false,
+      isNotificationsReady: false,
+      isNotificationsSubscribed: false,
+    };
+  },
   components: {
-    HelloWorld,
+    IndexPage,
+  },
+  methods: {
+    /**
+     * @param {ServiceWorkerRegistration} registration
+     * @returns {Promise<PushSubscription>}
+     */
+    async subscribeToPushNotifications(registration) {
+      const subscription = await registration.pushManager.subscribe({
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        userVisibleOnly: true,
+      });
+      console.log('subscription', subscription);
+      const response = await fetch(API_URL, {
+        method: 'post',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(subscription),
+      });
+      console.log('push subscribe response', response, response.json());
+      return subscription;
+    },
+  },
+  async created() {
+    register(`${process.env.BASE_URL}service-worker.js`, {
+      ready: async (registration) => {
+        this.isServiceWorkerReady = true;
+        if (window.localStorage.getItem('push_subscription') === null) {
+          const subscription = await this.subscribeToPushNotifications(registration);
+          window.localStorage.setItem('push_subscription', subscription.endpoint);
+          this.isNotificationsSubscribed = true;
+        } else {
+          this.isNotificationsSubscribed = true;
+        }
+      },
+      registered: (/* registration */) => {
+        console.log('sw:registered');
+      },
+      cached: (/* registration */) => {
+        console.log('sw:cached');
+      },
+      updatefound: (/* registration */) => {
+        console.log('sw:updatefound');
+      },
+      updated: (/* registration */) => {
+        console.log('sw:updated');
+      },
+      offline: () => {
+        console.log('sw:offline');
+      },
+      error: (error) => {
+        console.error('sw:error', error);
+      },
+    });
+
+    if (await window.Notification.requestPermission() === 'granted') {
+      this.isNotificationsReady = true;
+    } else {
+      throw new Error('Permission not granted for Notification');
+    }
   },
 };
 </script>

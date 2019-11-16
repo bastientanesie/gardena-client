@@ -1,88 +1,124 @@
 /* eslint-disable no-console */
-
-import { register } from 'register-service-worker';
-
+/* eslint-disable max-len */
 /*
- * @ee https://medium.com/izettle-engineering/beginners-guide-to-web-push-notifications-using-service-workers-cb3474a17679
- * @see https://www.npmjs.com/package/web-push
- */
-
-const VAPID_PUBLIC_KEY = 'BBXc8YZnd_Wh556lBFazyOydQct2LgPgwaE7_R7D5UKy1UCKCGTjBzH50BTQv1tQjXEVNWVlhJeVh_EYz3qBKzg';
-const SERVER_URL = 'http://localhost:4000/subscribe';
-
-/**
- * urlB64ToUint8Array is a magic function that will encode the base64 public key
- * to Array buffer which is needed by the subscription option
+ * @see https://github.com/yyx990803/register-service-worker/
  *
- * @param {String} base64String
- * @returns {Uint8Array}
+ * Register a service worker to serve assets from local cache.
+ *
+ * This lets the app load faster on subsequent visits in production, and gives
+ * it offline capabilities. However, it also means that developers (and users)
+ * will only see deployed updates on the "N+1" visit to a page, since previously
+ * cached resources are updated in the background.
  */
-function urlBase64ToUint8Array(base64String) {
-  /* eslint-disable no-mixed-operators */
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding)
-    .replace(/-/g, '+')
-    .replace(/_/g, '/');
 
-  const rawData = atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
+const isLocalhost = () => Boolean(
+  window.location.hostname === 'localhost'
+  // [::1] is the IPv6 localhost address.
+  || window.location.hostname === '[::1]'
+  // 127.0.0.1/8 is considered localhost for IPv4.
+  || window.location.hostname.match(
+    /^127(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}$/,
+  ),
+);
 
-  /* eslint-disable no-plusplus */
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
-
-// saveSubscription saves the subscription to the backend
-async function subscribe(subscription) {
-  const response = await fetch(SERVER_URL, {
-    method: 'post',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(subscription),
-  });
-  return response.json();
-}
-
-if (process.env.NODE_ENV === 'production') {
-  register(`${process.env.BASE_URL}service-worker.js`, {
-  // register('./service-worker.js', {
-    registrationOptions: {
-      scope: './',
-    },
-    async ready(registration) {
-      console.log('Service worker ready');
-      try {
-        const subscription = await registration.pushManager.subscribe({
-          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-          userVisibleOnly: true,
-        });
-        console.log('subscription', JSON.stringify(subscription));
-        const response = await subscribe(subscription);
-        console.log('response', response);
-      } catch (error) {
-        console.error(error);
+function registerValidSW(swUrl, emit, registrationOptions) {
+  navigator.serviceWorker
+    .register(swUrl, registrationOptions)
+    .then((registration) => {
+      emit('registered', registration);
+      if (registration.waiting) {
+        emit('updated', registration);
+        return;
       }
-    },
-    registered(/* registration */) {
-      console.log('Service worker has been registered.');
-    },
-    cached(/* registration */) {
-      console.log('Content has been cached for offline use.');
-    },
-    updatefound(/* registration */) {
-      console.log('New content is downloading.');
-    },
-    updated(/* registration */) {
-      console.log('New content is available; please refresh.');
-    },
-    offline() {
-      console.log('No internet connection found. App is running in offline mode.');
-    },
-    error(error) {
-      console.error('Error during service worker registration:', error);
-    },
-  });
+      /* eslint-disable no-param-reassign */
+      registration.onupdatefound = () => {
+        emit('updatefound', registration);
+        const installingWorker = registration.installing;
+        installingWorker.onstatechange = () => {
+          if (installingWorker.state === 'installed') {
+            if (navigator.serviceWorker.controller) {
+              // At this point, the old content will have been purged and
+              // the fresh content will have been added to the cache.
+              // It's the perfect time to display a "New content is
+              // available; please refresh." message in your web app.
+              emit('updated', registration);
+            } else {
+              // At this point, everything has been precached.
+              // It's the perfect time to display a
+              // "Content is cached for offline use." message.
+              emit('cached', registration);
+            }
+          }
+        };
+      };
+    })
+    .catch((error) => {
+      emit('error', error);
+    });
+}
+
+function checkValidServiceWorker(swUrl, emit, registrationOptions) {
+  // Check if the service worker can be found.
+  fetch(swUrl)
+    .then((response) => {
+      // Ensure service worker exists, and that we really are getting a JS file.
+      if (response.status === 404) {
+        // No service worker found.
+        emit('error', new Error(`Service worker not found at ${swUrl}`));
+        /* eslint-disable no-use-before-define */
+        unregister();
+      } else if (response.headers.get('content-type').indexOf('javascript') === -1) {
+        emit('error', new Error(
+          `Expected ${swUrl} to have javascript content-type, `
+          + `but received ${response.headers.get('content-type')}`,
+        ));
+        /* eslint-disable no-use-before-define */
+        unregister();
+      } else {
+        // Service worker found. Proceed as normal.
+        registerValidSW(swUrl, emit, registrationOptions);
+      }
+    })
+    .catch((error) => {
+      if (!navigator.onLine) {
+        emit('offline');
+      } else {
+        emit('error', error);
+      }
+    });
+}
+
+export function register(swUrl, hooks = {}) {
+  const { registrationOptions = {} } = hooks;
+  /* eslint-disable no-param-reassign */
+  delete hooks.registrationOptions;
+
+  const emit = (hook, ...args) => {
+    if (hooks && hooks[hook]) {
+      hooks[hook](...args);
+    }
+  };
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      if (isLocalhost()) {
+        // This is running on localhost. Lets check if a service worker still exists or not.
+        checkValidServiceWorker(swUrl, emit, registrationOptions);
+      } else {
+        // Is not local host. Just register service worker
+        registerValidSW(swUrl, emit, registrationOptions);
+      }
+      navigator.serviceWorker.ready.then((registration) => {
+        emit('ready', registration);
+      });
+    });
+  }
+}
+
+export function unregister() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.ready.then((registration) => {
+      registration.unregister();
+    });
+  }
 }
