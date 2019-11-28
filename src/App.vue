@@ -1,17 +1,18 @@
 <template>
   <div id="app">
-    <img alt="Vue logo" src="./assets/logo.png">
+    <img alt="Vue logo" src="./assets/gardena-icon-colored.png">
     <IndexPage
       v-bind:is-service-worker-ready="isServiceWorkerReady"
       v-bind:is-notifications-ready="isNotificationsReady"
       v-bind:is-notifications-subscribed="isNotificationsSubscribed"
+      @resetState="resetState()"
     ></IndexPage>
   </div>
 </template>
 
 <script>
 import IndexPage from './components/IndexPage.vue';
-import { register } from './registerServiceWorker';
+import { register, unregister } from './registerServiceWorker';
 import { urlBase64ToUint8Array, VAPID_PUBLIC_KEY } from './utils/sw-helpers';
 
 /* eslint-disable no-console */
@@ -53,10 +54,20 @@ export default {
       console.log('push subscribe response', response, response.json());
       return subscription;
     },
+    /**
+     * @returns {Promise<void>}
+     */
+    async resetState() {
+      if (await unregister()) {
+        this.isServiceWorkerReady = false;
+        window.localStorage.removeItem('push_subscription');
+      }
+    },
   },
   async created() {
     register(`${process.env.BASE_URL}service-worker.js`, {
       ready: async (registration) => {
+        console.log('sw:ready');
         this.isServiceWorkerReady = true;
         if (window.localStorage.getItem('push_subscription') === null) {
           const subscription = await this.subscribeToPushNotifications(registration);
@@ -101,7 +112,7 @@ export default {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-align: center;
-  color: #2c3e50;
+  color: #50443a;
   margin-top: 60px;
 }
 </style>

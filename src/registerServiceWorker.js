@@ -117,8 +117,7 @@ export function register(swUrl, hooks = {}) {
 
 export function unregister() {
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.ready.then((registration) => {
-      registration.unregister();
-    });
+    return navigator.serviceWorker.ready.then(registration => registration.unregister());
   }
+  return Promise.resolve(false);
 }

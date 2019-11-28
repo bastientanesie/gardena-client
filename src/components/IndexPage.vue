@@ -1,13 +1,18 @@
 <template>
   <article>
-    <h1>Gardena Client</h1>
+    <h1>Gardena Monitoring Client</h1>
     <p v-if="isServiceWorkerReady && isNotificationsReady">
       <template v-if="isNotificationsSubscribed">Waiting push notifications</template>
       <template v-else>Subscribing to push notification server&hellip;</template>
     </p>
     <p v-if="!isBrowserSuppored" class="error-msg">This browser is not supported</p>
     <ul>
-      <li>Service Worker : {{serviceWorkerStatus}}</li>
+      <li>
+        Service Worker : {{serviceWorkerStatus}}
+        <button v-if="isServiceWorkerReady" type="button" @click="$emit('resetState')">
+          Reset
+        </button>
+      </li>
       <li>Push API : {{pushStatus}}</li>
     </ul>
   </article>
@@ -68,7 +73,7 @@ export default {
 
 <style scoped>
   .error-msg {
-    color: red;
+    color: #f15922;
     font-weight: 700;
   }
 </style>

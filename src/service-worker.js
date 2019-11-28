@@ -4,11 +4,20 @@
 self.addEventListener('push', (event) => {
   console.log('event:Push', event);
   if (event.data) {
+    const message = event.data.json();
     self.registration.showNotification(
-      'Yolo',
+      'Gardena Monitoring',
       {
-        body: event.data.text(),
-        // here you can add more properties like icon, image, vibrate, etc.
+        body: message.data,
+        lang: 'fr_FR',
+        vibrate: [250, 250, 500],
+        badge: './assets/gardena-badge.png',
+        icon: './assets/gardena-icon-colored.png',
+        timestamp: message.times,
+        // image: 'http://',
+        // data: {
+        //   mixed: 'coucou'
+        // },
       },
     );
   } else {
