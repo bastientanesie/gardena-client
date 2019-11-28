@@ -22,7 +22,7 @@ USER node
 WORKDIR /srv/app
 COPY --from=development --chown=root:root /srv/app/node_modules ./node_modules
 COPY . .
-RUN npm run build
+RUN npm run build --modern
 
 # production stage
 FROM nginx:stable-alpine
