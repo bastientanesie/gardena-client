@@ -5,21 +5,25 @@
       v-bind:is-service-worker-ready="isServiceWorkerReady"
       v-bind:is-notifications-ready="isNotificationsReady"
       v-bind:is-notifications-subscribed="isNotificationsSubscribed"
+      :is-socket-connected="socket.connected"
+      :devices="devices"
       @resetState="resetState()"
     ></IndexPage>
   </div>
 </template>
 
 <script>
-import IndexPage from './components/IndexPage.vue';
-import { register, unregister } from './registerServiceWorker';
-import { urlBase64ToUint8Array, VAPID_PUBLIC_KEY } from './utils/sw-helpers';
+import io from 'socket.io-client';
+import IndexPage from '@/components/IndexPage.vue';
+import { register, unregister } from '@/registerServiceWorker';
+import { urlBase64ToUint8Array, VAPID_PUBLIC_KEY } from '@/utils/sw-helpers';
+import Device from '@/classes/Device';
 
 /* eslint-disable no-console */
 
 const API_URL = (process.env.NODE_ENV === 'production')
-  ? '//api.gardena.cloud.maevis.fr/subscribe'
-  : 'http://localhost:5555/subscribe';
+  ? '//api.gardena.cloud.maevis.fr'
+  : 'http://localhost:5555';
 
 export default {
   name: 'app',
@@ -28,6 +32,8 @@ export default {
       isServiceWorkerReady: false,
       isNotificationsReady: false,
       isNotificationsSubscribed: false,
+      socket: io(`${API_URL}`),
+      devices: [],
     };
   },
   components: {
@@ -44,7 +50,7 @@ export default {
         userVisibleOnly: true,
       });
       console.log('subscription', subscription);
-      const response = await fetch(API_URL, {
+      const response = await fetch(`${API_URL}/subscribe`, {
         method: 'post',
         headers: {
           'Content-Type': 'application/json',
@@ -62,6 +68,19 @@ export default {
         this.isServiceWorkerReady = false;
         window.localStorage.removeItem('push_subscription');
       }
+    },
+    /**
+     *
+     */
+    setupSocket() {
+      this.socket.on('error', (error) => {
+        console.error(error);
+      });
+
+      this.socket.on('update', (devices) => {
+        this.devices = devices.filter(device => device.name !== null).map(Device.fromJson);
+        console.log('updated devices : %O', this.devices);
+      });
     },
   },
   async created() {
@@ -102,6 +121,11 @@ export default {
     } else {
       throw new Error('Permission not granted for Notification');
     }
+
+    this.setupSocket();
+  },
+  beforeDestroy() {
+    this.socket.close();
   },
 };
 </script>

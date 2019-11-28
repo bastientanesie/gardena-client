@@ -14,15 +14,20 @@
         </button>
       </li>
       <li>Push API : {{pushStatus}}</li>
+      <li>API : {{isSocketConnected ? 'connected' : 'disconnected'}}</li>
     </ul>
+    <DeviceCard v-for="item in devices" v-bind:key="item.id" :device="item"/>
   </article>
 </template>
 
 <script>
-/* eslint-disable no-console */
+import DeviceCard from '@/components/DeviceCard.vue';
 
 export default {
   name: 'IndexPage',
+  components: {
+    DeviceCard,
+  },
   props: {
     isServiceWorkerReady: {
       type: Boolean,
@@ -40,6 +45,18 @@ export default {
       type: Boolean,
       default() {
         return false;
+      },
+    },
+    isSocketConnected: {
+      type: Boolean,
+      default() {
+        return false;
+      },
+    },
+    devices: {
+      type: Array,
+      default() {
+        return [];
       },
     },
   },
